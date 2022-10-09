@@ -1,15 +1,18 @@
-use error_chain::error_chain;
-use std::env;
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
-use url::Url;
+mod tests;
+use hyper::body::HttpBody;
+use hyper::{Client, Uri};
+use hyper_tls::HttpsConnector;
+use std::{env, io::Write};
 
-error_chain! {
-     foreign_links {
-         Io(std::io::Error);
-         HttpRequest(reqwest::Error);
-     }
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+pub fn setup(element: &str) -> (Uri, &str) {
+    let fpath = element.split('/').last().expect("Fail to find file name");
+    println!("\nThe file path is : {}", fpath);
+    let url = element
+        .parse::<Uri>()
+        .expect("Fail to convert target name to url");
+    (url, fpath)
 }
 
 #[tokio::main]
@@ -20,26 +23,49 @@ async fn main() -> Result<()> {
         println!("No arguments given");
         return Ok(());
     }
+
     let element = &args[1];
-    let fpath = element
-        .as_str()
-        .split('/')
-        .last()
-        .expect("Fail to find file name");
-    println!("The file path is : {}", fpath);
-    let target = Url::parse(element).expect("Fail to convert target name to url");
+    let (url, fpath) = setup(element);
 
-    //Here is where the download happens
-    let response = reqwest::get(target).await?;
-    let path = Path::new(fpath);
-    let mut file = match File::create(&path) {
-        Err(why) => panic!("couldn't create {}", why),
-        Ok(file) => file,
-    };
-    let content = response.bytes().await?;
-    file.write_all(&content)?;
+    //Call to dowload functions
+    match url.scheme_str() {
+        Some("https") => fetch_url_https(url.clone(), fpath).await?,
+        Some("http") => fetch_url_http(url, fpath).await?,
+        _ => {
+            println!("url is not http or https");
+        }
+    }
+    Ok(())
+}
 
-    println!("Download succeeded");
+pub async fn fetch_url_http(url: hyper::Uri, fpath: &str) -> Result<()> {
+    let client = Client::new();
+    let mut res = client.get(url).await?;
+    let mut file = std::fs::File::create(fpath).unwrap();
+
+    while let Some(next) = res.data().await {
+        let chunk = next?;
+        file.write_all(&chunk)?;
+    }
+
+    println!("\nDone!");
+
+    Ok(())
+}
+
+pub async fn fetch_url_https(url: hyper::Uri, fpath: &str) -> Result<()> {
+    let https = HttpsConnector::new();
+    let client = Client::builder().build::<_, hyper::Body>(https);
+
+    let mut res = client.get(url).await?;
+    let mut file = std::fs::File::create(fpath).unwrap();
+
+    while let Some(next) = res.data().await {
+        let chunk = next?;
+        file.write_all(&chunk)?;
+    }
+
+    println!("\n\nDone!");
 
     Ok(())
 }
