@@ -6,7 +6,7 @@ edition = "2021"
 
 
 [dependencies]
-hyper = { version = "*", features = ["full"] }
-hyper-tls = "*"
-tokio = { version = "*", features = ["full"] }
-file_diff = "*"
+hyper = { version = "0", features = ["full"] }
+hyper-tls = "0"
+tokio = { version = "1", features = ["full"] }
+file_diff = "1"
