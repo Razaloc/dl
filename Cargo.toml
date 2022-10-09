@@ -10,3 +10,5 @@ hyper = { version = "0", features = ["full"] }
 hyper-tls = "0"
 tokio = { version = "1", features = ["full"] }
 file_diff = "1"
+reqwest = { git = "https://github.com/Razaloc/reqwest", feature = ["full"]  } 
+error-chain = "0"
